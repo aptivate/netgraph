@@ -9,7 +9,7 @@ Both are intended as tools for network debugging. Certainly the user interface c
 be simpler; but the graphical display is an important component in rapidly understanding
 network conditions:
 
-![Screenshot](doc/screenshot.png)
+![Screenshot](raw/master/doc/screenshot.png)
 
 ## Running
 

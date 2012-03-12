@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0   http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.aptivate</groupId>
+	<artifactId>netgraph</artifactId>
+	<version>120312</version>
+	<packaging>jar</packaging>
+  	<organization>
+		<name>Aptivate</name>
+		<url>http://www.aptivate.org/</url>
+	</organization>
+	<name>NetGraph</name>
+	
+	<!--
+	<properties>
+	
+	    <toplevel.directory>${project.basedir}/../</toplevel.directory>
+	    <war.directory>${project.basedir}/../eclipse-aggregate-gae/war</war.directory>
+		<scriptSourceDirectory>${project.basedir}/../src/it/scripts</scriptSourceDirectory>
+    	<itFormsDirectory>${project.basedir}/../src/it/testfiles/forms</itFormsDirectory>
+    	<itSubmissionsDirectory>${project.basedir}/../src/it/testfiles/submissions</itSubmissionsDirectory>
+    	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<gooogle.appengine.sdk.version>1.5.4</gooogle.appengine.sdk.version>
+		<google.gdata.version>1.46.0</google.gdata.version>
+		<google.gwt.version>2.4.0</google.gwt.version>
+		<emma.maven.plugin.version>1.2</emma.maven.plugin.version>
+		<maven.surefire.report.plugin.version>2.6</maven.surefire.report.plugin.version>
+		<maven.surefire.plugin.version>2.6</maven.surefire.plugin.version>
+		<maven.failsafe.plugin.version>2.10</maven.failsafe.plugin.version>
+		<cargo.maven2.plugin.version>1.1.3</cargo.maven2.plugin.version>
+		<build.helper.maven.plugin.version>1.7</build.helper.maven.plugin.version>
+		<gwt.maven.plugin.version>2.4.0</gwt.maven.plugin.version>
+		<maven.gae.plugin.version>0.9.1</maven.gae.plugin.version>
+		<maven.war.plugin.version>2.1.1</maven.war.plugin.version>
+		<maven.antrun.plugin.version>1.6</maven.antrun.plugin.version>
+		<maven.compiler.plugin.version>2.3.2</maven.compiler.plugin.version>
+		<org.springframework.version>3.0.5.RELEASE</org.springframework.version>
+		<oauth.signpost.version>1.2.1.1</oauth.signpost.version>
+		<org.slf4j.version>1.6.1</org.slf4j.version>
+	</properties>
+	-->
+
+	<repositories>
+		<!-- java.net maven repo -->
+		<repository>
+		<id>maven2-repository.java.net</id>
+			<name>Java.net Repository for Maven</name>
+			<url>http://download.java.net/maven/2/</url>
+			<layout>default</layout>
+		</repository>
+	</repositories>
+	
+	<pluginRepositories>
+		<pluginRepository>
+		  <id>codehaus-snapshots</id>
+		  <url>https://nexus.codehaus.org/content/repositories/snapshots/</url>
+		  <snapshots>
+			<enabled>true</enabled>
+		    <updatePolicy>daily</updatePolicy>
+		  </snapshots>
+		  <releases>
+			<enabled>false</enabled>
+		  </releases>
+		</pluginRepository>
+	</pluginRepositories>
+	
+	<dependencies>
+		<dependency>
+			<groupId>jrobin</groupId>
+			<artifactId>jrobin</artifactId>
+			<version>1.4.0</version>
+		</dependency>
+	</dependencies>
+
+	<!-- http://chadthedeveloper.blogspot.com/2008/02/maven2-multiple-source-directories-and.html -->
+	<build>
+		<defaultGoal>package</defaultGoal>
+		<sourceDirectory>src</sourceDirectory>
+		<outputDirectory>bin</outputDirectory>
+		<!-- 
+		<resources>
+			<resource>
+				<filtering>false</filtering>
+				<directory>${basedir}/src/</directory>
+				<includes>
+					<include>**/*.properties</include>
+				</includes>
+			</resource>
+		</resources>
+		-->
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>add-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>src</source>
+								<source>jflow-0.3</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>      
+			<plugin>
+				<!--  This configures the compiler to compile for java 1.6
+				   (it defaults to something much older) -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<!-- <version>${maven.compiler.plugin.version}</version> -->
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+			</plugin>
+			<plugin>
+			    <groupId>org.apache.maven.plugins</groupId>
+			    <artifactId>maven-assembly-plugin</artifactId>
+			    <configuration>
+			      <descriptorRefs>
+			        <descriptorRef>jar-with-dependencies</descriptorRef>
+			      </descriptorRefs>
+					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<mainClass>org.aptivate.netgraph.Applet</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+		        <executions>
+		          <execution>
+		            <id>make-assembly</id> <!-- this is used for inheritance merges -->
+		            <phase>package</phase> <!-- bind to the packaging phase -->
+		            <goals>
+		              <goal>single</goal>
+		            </goals>
+		          </execution>
+		        </executions>
+		    </plugin>
+		    <!-- 
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<configuration>
+					<warSourceDirectory>web</warSourceDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>war</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			-->
+	  	</plugins>
+	</build>
+</project>

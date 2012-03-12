@@ -1,0 +1,15 @@
+2007-04-24  Oliver Hitz  <oliver@net-track.ch>
+
+	* Changed license to LGPL.
+	* Minor changes.
+
+2005-06-05  Oliver Hitz  <oliver@net-track.ch>
+
+	* Added another source file because some ancillary code did not
+	  compile.
+
+2005-04-21  Oliver Hitz  <oliver@net-track.ch>
+
+	* Initial public release.
+
+

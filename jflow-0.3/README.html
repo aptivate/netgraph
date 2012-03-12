@@ -1,0 +1,169 @@
+<html>
+  <head>
+    <title>jflow</title>
+  </head>
+  <body>
+    <h1>jflow - Java-based Netflow Processing</h1>
+
+    <p>Copyright (C) 2002-2007 <a href="mailto:oliver@net-track.ch">Oliver Hitz</a></p>
+
+    <p>
+      jflow is a set of Java classes for collecting and analyzing
+      NetFlow data. NetFlow is a Cisco invention for monitoring
+      traffic flows inside a network.
+    </p>
+
+    <p>
+      jflow supports version 5 and 6 NetFlow packets. It is
+      multithreaded and designed primarily to do real-time traffic
+      accounting and analysis. All flows entering the Collector are
+      processed in two steps:
+    </p>
+
+    <ul>
+      <li>
+	Filtering: The goal of this stage is to reduce the number of
+	flows. If a flow matches one of the freely pluggable filters,
+	this flow will be ignored and not taken to the accounting
+	step.
+      </li>
+      <li>
+	Accounting: All flows not matching one of the filters are run
+	through the accounting modules where the actual traffic
+	accounting or analysis takes place.
+      </li>
+    </ul>
+
+    <p>
+      Please note that jflow does not offer a lot of fancy features,
+      it probably never will. It was designed as a building block for
+      traffic accounting, network monitoring and anomaly detection.
+    </p>
+
+    <h2>Performance</h2>
+
+    <p>
+      jflow is currently being used for real-time traffic accounting
+      in networks carrying up to 100 Mbps of data. Performance has
+      never been an issue so far. Of course, it depends on what you
+      want to do with the data.
+    </p>
+
+    <h2>Using the jflow Classes</h2>
+
+    <p>
+      Using the jflow classes is relatively simple:
+    </p>
+
+    <ul>
+      <li>
+	Define your filtering and accounting modules by implementing
+	the interface <tt>nettrack.net.netflow.Filter</tt> and
+	<tt>nettrack.net.netflow.Accountant</tt>.
+      </li>
+      <li>
+	Create an instance of <tt>nettrack.net.netflow.Collector</tt>.
+      </li>
+      <li>
+	Attach to the collector either a <tt>V5FlowHandler</tt> or a
+	<tt>V6FlowHandler</tt>, depending on the NetFlow version you
+	will be using.
+      </li>
+      <li>
+	Attach to this handler your filtering and accounting modules.
+      </li>
+      <li>
+	Start the collector using the <tt>start</tt> method. Note that
+	the collector is multithreaded. Calling <tt>start</tt> will
+	start collecting in the background, the call will return
+	immediately.
+      </li>
+    </ul>
+
+    <h2>Examples</h2>
+
+    <p>
+      jflow is not a complete software tool for using NetFlow data,
+      but rather a set of classes that can help you to write such
+      tools. The <tt>examples/</tt> directory contains examples that
+      explain how to use the classes.
+    </p>
+
+    <h3>print: Print Flows</h3>
+
+    <p>
+      <tt>V5Printer</tt> collects version 5 NetFlow data and prints it
+      to the console. It takes the source address of the NetFlow probe
+      as argument:
+    </p>
+
+    <pre>
+$ java -cp print.jar:../../lib/jflow.jar V5Print [source]
+</pre>
+
+    <h3>ipaccount: Per IP Address Accounting</h3>
+
+    <p>
+      <tt>V5IpAccount</tt> shows how per-ip address accounting can be
+      done using the jflow classes. It takes as arguments the ip
+      address of the NetFlow probe, and a subnet in
+      <em>network/mask</em> format and does traffic accounting for all
+      the ip addresses in the selected network. Every five seconds, it
+      prints the results:
+    </p>
+
+    <pre>
+$ java -cp ipaccount.jar:../../lib/jflow.jar V5IpAccount [source] [network/mask]
+</pre>
+
+    <h3>recorder: NetFlow Record and Replay</h3>
+
+    <p>
+      <tt>V5Record</tt> collects version 5 NetFlow data and dumps it
+      into a file:
+    </p>
+
+    <pre>
+$ java -cp recorder.jar:../../lib/jflow.jar V5Record flows.dump
+</pre>
+
+    <p>
+      Using <tt>V5Replay</tt>, this data can now be sent to a
+      host. Just specify the host and port, as well as the timing in
+      milliseconds. To send the data at 100 ms intervals, launch
+      <tt>V5Replay</tt> as follows:
+    </p>
+
+    <pre>
+$ java -cp recorder.jar:../../lib/jflow.jar V5Replay flows.dump [host] [port] 100
+</pre>
+
+    <h2>License</h2>
+
+    <p>
+      This library is free software; you can redistribute it and/or
+      modify it under the terms of the GNU Lesser General Public
+      License as published by the Free Software Foundation; either
+      version 2.1 of the License, or (at your option) any later
+      version.
+    </p>
+
+    <p>
+      This library is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+      Lesser General Public License for more details.
+    </p>
+
+    <p>
+      You should have received a copy of the GNU Lesser General Public
+      License along with this library; if not, write to the Free
+      Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+      Boston, MA  02110-1301  USA
+    </p>
+
+    <p>
+      $Id: README.html,v 1.4 2007-04-24 13:26:25 oli Exp $
+    </p>
+  </body>
+</html>

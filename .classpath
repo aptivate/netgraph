@@ -1,10 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="src" path="jflow-0.3/src"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="src" path="test"/>
-	<classpathentry kind="var" path="JUNIT_HOME/junit.jar" sourcepath="ECLIPSE_HOME/plugins/org.eclipse.jdt.source_3.1.0/src/org.junit_3.8.1/junitsrc.zip"/>
-	<classpathentry kind="lib" path="lib/jrobin-1.4.0.jar"/>
-	<classpathentry kind="output" path="bin"/>
+  <classpathentry kind="src" path="src" including="**/*.java"/>
+  <classpathentry kind="src" path="jflow-0.3/src" including="**/*.java"/>
+  <classpathentry kind="output" path="bin"/>
+  <classpathentry kind="var" path="M2_REPO/jrobin/jrobin/1.4.0/jrobin-1.4.0.jar"/>
+  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 </classpath>

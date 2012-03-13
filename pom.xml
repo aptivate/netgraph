@@ -102,7 +102,7 @@
 						<configuration>
 							<sources>
 								<source>src</source>
-								<source>jflow-0.3</source>
+								<source>jflow-0.3/src</source>
 							</sources>
 						</configuration>
 					</execution>

@@ -10,12 +10,13 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.GregorianCalendar;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
@@ -23,12 +24,12 @@ import java.util.Vector;
 import java.util.logging.Logger;
 
 import javax.swing.JApplet;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
@@ -47,6 +48,8 @@ import nettrack.net.netflow.V5Flow;
 import nettrack.net.netflow.V5FlowHandler;
 
 import org.jrobin.core.DsDef;
+import org.jrobin.core.FetchData;
+import org.jrobin.core.FetchRequest;
 import org.jrobin.core.RrdDb;
 import org.jrobin.core.RrdDef;
 import org.jrobin.core.RrdException;
@@ -74,7 +77,7 @@ public class Applet extends JApplet
     	}
     }
     
-    public static void main(String[] args) 
+    public static void main(final String[] args) 
     {
         // Schedule a job for the event-dispatching thread:
         // creating and showing this application's GUI.
@@ -85,25 +88,31 @@ public class Applet extends JApplet
                     public void run() 
                     {
                         createAndShowGUI();
+                        if (args.length == 1)
+                        {
+                        	m_Applet.m_TargetAddrBox.setText(args[0]);
+                        }
                     }
                 }
         );
     }
+    
+    private static Applet m_Applet;
     
     public static void createAndShowGUI()
     {
         JFrame frame = new JFrame();
         frame.setLayout(new BorderLayout());
         
-        Applet applet = new Applet(); 
-        frame.add(applet, BorderLayout.CENTER);
+        m_Applet = new Applet(); 
+        frame.add(m_Applet, BorderLayout.CENTER);
         
         frame.setSize(800, 600);
         frame.pack();
         frame.setVisible(true);
         
-        applet.init();
-        applet.start();
+        m_Applet.init();
+        m_Applet.start();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
     
@@ -126,6 +135,7 @@ public class Applet extends JApplet
     private GraphPanel m_panel;
     private JComboBox  m_ModeCombo;
     private JTextField m_TargetAddrBox;
+    private JScrollBar m_TimeWindow;
     private Vector     m_colHeads;
     private Vector     m_selected = new Vector();
     private boolean    m_initialised = false;
@@ -206,6 +216,7 @@ public class Applet extends JApplet
         
         getContentPane().add(splitPane, BorderLayout.CENTER);
         
+        /*
         JButton restartButton = new JButton("Restart");
         getContentPane().add(restartButton, BorderLayout.SOUTH);
         
@@ -219,6 +230,28 @@ public class Applet extends JApplet
                     }
                 }
         );
+        */
+        
+        m_TimeWindow = new JScrollBar(JScrollBar.HORIZONTAL);
+        getContentPane().add(m_TimeWindow, BorderLayout.SOUTH);
+        m_TimeWindow.setMinimum(0 - dataStoreSeconds);
+        m_TimeWindow.setMaximum(graphWidthSeconds);
+        m_TimeWindow.setValue(0);
+        m_TimeWindow.setVisibleAmount(graphWidthSeconds);
+        m_TimeWindow.addAdjustmentListener(new AdjustmentListener(){
+			@Override
+			public void adjustmentValueChanged(AdjustmentEvent e) {
+				m_grapher.m_ScrollOffsetFromNow = e.getValue();
+				try
+				{
+					m_grapher.redrawGraph();
+				}
+				catch (Exception ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+		});
         
         // Ask to be notified of selection changes.
         ListSelectionModel rowSM = m_FlowTable.getSelectionModel();
@@ -413,7 +446,8 @@ public class Applet extends JApplet
         }
     }
 
-    private int graphWidthSeconds = 600;
+    private int graphWidthSeconds = 300;
+    private int dataStoreSeconds = 86400;
     
     abstract class RestartableProcess extends Thread
     {
@@ -567,6 +601,9 @@ public class Applet extends JApplet
         private DataSource m_otherDataSource;
         private DsDef m_PingDataSourceDef;
         private Map m_separateDataSources = new Hashtable();
+        private Double [] m_PingTimes;
+        private int m_PingTimesIndex = 0;
+        private long m_ScrollOffsetFromNow = 0;
 
         public GraphUpdaterThread() throws Exception
         {
@@ -577,6 +614,7 @@ public class Applet extends JApplet
             
             m_PingDataSourceDef = new DsDef("Ping", "GAUGE", 3600,
             		Double.NaN, Double.NaN);
+            m_PingTimesIndex = 2;
 
             rebuildGraph();
         }
@@ -716,111 +754,176 @@ public class Applet extends JApplet
         }
         
         private final Color m_otherColour = new Color(0xC0, 0xC0, 0xC0);
+        private final Color m_PacketLossColour = new Color(0xFF, 0xCC, 0xAA);
 
         protected void doProcess()
         {
-            ColourIterator iter = new ColourIterator();
             Mode mode = (Mode) m_ModeCombo.getSelectedItem();
             
             try 
             {
-                RrdGraphDef rrdGraph = new RrdGraphDef(Util.getTime() - graphWidthSeconds, 
-                    Util.getTime());
-                
                 switch (mode)
                 {
                 case PING:
-                	rrdGraph.setTitle("Round Trip Time (ping)");
-                	rrdGraph.setVerticalLabel("seconds");
-                	rrdGraph.setLowerLimit(0.0);
-                	
                     long start = System.currentTimeMillis();
                     Sample sample = m_rrdDatabase.createSample(start / 1000);
                     InetAddress addr = InetAddress.getByName(m_TargetAddrBox.getText());
                     Double value = Double.NaN;
 
-                    if (addr.isReachable(1000))
+                    try
                     {
-                    	long elapsed = System.currentTimeMillis() - start;
-                    	value = ((double)elapsed) / 1000;
+	                    if (addr.isReachable(1000))
+	                    {
+	                    	long elapsed = System.currentTimeMillis() - start;
+	                    	value = ((double)elapsed) / 1000;
+
+		                    System.out.println("Ping at " + start + 
+		                    		" returned in " + value + " seconds");
+	                    }
+	                    else
+	                    {
+		                    System.out.println("Ping at " + start + " lost");
+	                    }
+                    }
+                    catch (SocketException e)
+                    {
+                    	// not terribly interesting
+                    	System.out.println("Ping at " + start + 
+                        		" failed: " + e);
                     }
 
-                    System.out.println("Pinging at " + start + 
-                    		" returned " + value);
                 	sample.setValue(m_PingDataSourceDef.getDsName(), value);
                     sample.update();
                     
-                    rrdGraph.datasource(m_PingDataSourceDef.getDsName(), RRD_PATH, 
-                    		m_PingDataSourceDef.getDsName(), "AVERAGE");
-            		rrdGraph.line(m_PingDataSourceDef.getDsName(), iter.next(), 
-            				m_PingDataSourceDef.getDsName(), 1);
                 	break;
                 	
                 case NETFLOW:
-                	rrdGraph.setTitle("Network Traffic (netflow)");
+                    m_datamodel.setRowCount(m_entities.keySet().size());
+                    int rowIndex = 0;
+                    
+                    for (Iterator i = m_entities.keySet().iterator(); i.hasNext();)
+                    {
+                        String key = (String)( i.next() );
+                        Entity entity = (Entity)( m_entities.get(key) );
 
-                	Vector dataSources = new Vector(m_selected);
-                	dataSources.add("Other");
-
-                	for (Iterator i = dataSources.iterator(); i.hasNext();)
-                	{
-                		String host = (String)( i.next() );
-                		DataSource ds;
-                		Color c;
-
-                		if (host.equals("Other"))
-                		{
-                			ds = m_otherDataSource;
-                			c = m_otherColour;
-                		}
-                		else
-                		{
-                			ds = (DataSource)m_separateDataSources.get(host);
-                			c = iter.next();
-                		}
-
-                		if (ds == null)
-                		{
-                			continue;
-                		}
-
-                		String fromName = "From " + ds.name;
-                		String toName   = "To "   + ds.name;
-
-                		rrdGraph.datasource(fromName, RRD_PATH, fromName, "AVERAGE");
-                		rrdGraph.datasource(toName,   RRD_PATH, toName,   "AVERAGE");
-
-                		rrdGraph.line(fromName, c, ds.name, 1);
-                		rrdGraph.line(toName,   c, null,    1);
-                	}
+                        m_datamodel.setValueAt(key, rowIndex, 0);
+                        m_datamodel.setValueAt("" + entity.m_total.in, 
+                            rowIndex, 1);
+                        m_datamodel.setValueAt("" + entity.m_total.out, 
+                            rowIndex, 2);
+                        rowIndex++;
+                    }
 
                 	break;
                 }
-            
-                m_panel.setRrd(rrdGraph);
+                
+                redrawGraph();
             }
             catch (Exception e)
             {
                 e.printStackTrace();
             }
-            
-            m_panel.repaint();
-            
-            m_datamodel.setRowCount(m_entities.keySet().size());
-            int rowIndex = 0;
-            
-            for (Iterator i = m_entities.keySet().iterator(); i.hasNext();)
-            {
-                String key = (String)( i.next() );
-                Entity entity = (Entity)( m_entities.get(key) );
+        }
+        
+        public void redrawGraph() throws RrdException, IOException
+        {
+            ColourIterator iter = new ColourIterator();
+            Mode mode = (Mode) m_ModeCombo.getSelectedItem();
 
-                m_datamodel.setValueAt(key, rowIndex, 0);
-                m_datamodel.setValueAt("" + entity.m_total.in, 
-                    rowIndex, 1);
-                m_datamodel.setValueAt("" + entity.m_total.out, 
-                    rowIndex, 2);
-                rowIndex++;
+            long graphOriginX = Util.getTime() + m_ScrollOffsetFromNow - 
+            		graphWidthSeconds;
+            
+            RrdGraphDef rrdGraph = new RrdGraphDef(graphOriginX,
+            		graphOriginX + graphWidthSeconds);
+                
+            switch (mode)
+            {
+            case PING:
+            	rrdGraph.setTitle("Round Trip Time (ping)");
+            	rrdGraph.setVerticalLabel("seconds");
+            	rrdGraph.setLowerLimit(0.0);
+
+                rrdGraph.datasource(m_PingDataSourceDef.getDsName(), RRD_PATH, 
+                		m_PingDataSourceDef.getDsName(), "AVERAGE");
+        		rrdGraph.line(m_PingDataSourceDef.getDsName(), iter.next(), 
+        				m_PingDataSourceDef.getDsName(), 1);
+        		
+        		// http://oldwww.jrobin.org/api/coreapi.html
+        		FetchRequest request = m_rrdDatabase.createFetchRequest(
+        				"AVERAGE", graphOriginX, 
+        				graphOriginX + graphWidthSeconds);
+        		request.setFilter(m_PingDataSourceDef.getDsName());
+
+        		// execute the request
+        		FetchData fetchData = request.fetchData();
+
+        		// From a logical point of view FetchData object is, simply, 
+        		// an array of FetchPoint objects. Each FetchPoint object 
+        		// represents all datasource values for the specific timestamp.
+        		// Here is how you can produce the same output to stdout 
+        		// as RRDTool's fetch command
+        		
+        		long [] times = fetchData.getTimestamps();
+        		double [] values = fetchData.getValues(0);
+        		boolean haveAddedLossMarker = false;
+        		
+        		for(int i = 0; i < fetchData.getRowCount(); i++)
+        		{
+        		    if (Double.isNaN(values[i]))
+        		    {
+        		    	GregorianCalendar date = (GregorianCalendar)
+        		    			GregorianCalendar.getInstance();
+        		    	date.setTimeInMillis(times[i] * 1000);
+        		    	rrdGraph.vrule(date, m_PacketLossColour,
+        		    			haveAddedLossMarker ? null : "Loss");
+        		    	haveAddedLossMarker = true;
+        		    }
+        		}
+        		break;
+        		
+            case NETFLOW:
+            	rrdGraph.setTitle("Network Traffic (netflow)");
+            	
+            	Vector dataSources = new Vector(m_selected);
+            	dataSources.add("Other");
+
+            	for (Iterator i = dataSources.iterator(); i.hasNext();)
+            	{
+            		String host = (String)( i.next() );
+            		DataSource ds;
+            		Color c;
+
+            		if (host.equals("Other"))
+            		{
+            			ds = m_otherDataSource;
+            			c = m_otherColour;
+            		}
+            		else
+            		{
+            			ds = (DataSource)m_separateDataSources.get(host);
+            			c = iter.next();
+            		}
+
+            		if (ds == null)
+            		{
+            			continue;
+            		}
+
+            		String fromName = "From " + ds.name;
+            		String toName   = "To "   + ds.name;
+
+            		rrdGraph.datasource(fromName, RRD_PATH, fromName, "AVERAGE");
+            		rrdGraph.datasource(toName,   RRD_PATH, toName,   "AVERAGE");
+
+            		rrdGraph.line(fromName, c, ds.name, 1);
+            		rrdGraph.line(toName,   c, null,    1);
+            	}
+
+            	break;
             }
+
+            m_panel.setRrd(rrdGraph);
+            m_panel.repaint();
             
         }
 
@@ -836,7 +939,7 @@ public class Applet extends JApplet
             m_rrdDefinition.addDatasource("To Other",   "ABSOLUTE", 3600, 
                 Double.NaN, Double.NaN);
             m_rrdDefinition.addDatasource(m_PingDataSourceDef);
-            m_rrdDefinition.addArchive("AVERAGE", 0, 1, graphWidthSeconds);
+            m_rrdDefinition.addArchive("AVERAGE", 0, 1, dataStoreSeconds);
             m_rrdDatabase = new RrdDb(m_rrdDefinition);
 
             /*

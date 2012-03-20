@@ -57,6 +57,7 @@ import org.jrobin.core.Sample;
 import org.jrobin.core.Util;
 import org.jrobin.graph.RrdGraph;
 import org.jrobin.graph.RrdGraphDef;
+import org.jrobin.graph.TimeAxisUnit;
 
 public class Applet extends JApplet
 {
@@ -132,10 +133,11 @@ public class Applet extends JApplet
     private GraphUpdaterThread    m_grapher;
     
     private JTable     m_FlowTable;
-    private GraphPanel m_panel;
+    private GraphPanel m_Graph;
     private JComboBox  m_ModeCombo;
     private JTextField m_TargetAddrBox;
     private JScrollBar m_TimeWindow;
+    private JLabel     m_StatusBar;
     private Vector     m_colHeads;
     private Vector     m_selected = new Vector();
     private boolean    m_initialised = false;
@@ -200,19 +202,19 @@ public class Applet extends JApplet
         String [] columnNames = { "IP", "Bytes In", "Bytes Out" };
         m_datamodel = new DefaultTableModel(m_colHeads, 0);
         m_FlowTable.setModel(m_datamodel);
-
-        m_panel = new GraphPanel();
+        
+        JPanel graphContainer = new JPanel(new BorderLayout());
         
         // Create a split pane with the two scroll panes in it.
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-            tableScroll, m_panel); 
+            tableScroll, graphContainer); 
         splitPane.setOneTouchExpandable(true);
         // splitPane.setDividerLocation(20);
 
         // Provide minimum sizes for the two components in the split pane
         Dimension minimumSize = new Dimension(100, 20);
         m_FlowTable.setMinimumSize(m_FlowTable.getPreferredSize());
-        m_panel.setMinimumSize(minimumSize);
+        graphContainer.setMinimumSize(minimumSize);
         
         getContentPane().add(splitPane, BorderLayout.CENTER);
         
@@ -231,13 +233,18 @@ public class Applet extends JApplet
                 }
         );
         */
-        
+
+        m_Graph = new GraphPanel();
+        graphContainer.add(m_Graph, BorderLayout.CENTER);
+
         m_TimeWindow = new JScrollBar(JScrollBar.HORIZONTAL);
-        getContentPane().add(m_TimeWindow, BorderLayout.SOUTH);
+        graphContainer.add(m_TimeWindow, BorderLayout.SOUTH);
         m_TimeWindow.setMinimum(0 - dataStoreSeconds);
         m_TimeWindow.setMaximum(graphWidthSeconds);
         m_TimeWindow.setValue(0);
         m_TimeWindow.setVisibleAmount(graphWidthSeconds);
+        m_TimeWindow.setBlockIncrement(graphWidthSeconds / 2);
+        m_TimeWindow.setUnitIncrement(graphWidthSeconds / 10);
         m_TimeWindow.addAdjustmentListener(new AdjustmentListener(){
 			@Override
 			public void adjustmentValueChanged(AdjustmentEvent e) {
@@ -252,6 +259,9 @@ public class Applet extends JApplet
 				}
 			}
 		});
+        
+        m_StatusBar = new JLabel(" ");
+        getContentPane().add(m_StatusBar, BorderLayout.SOUTH);
         
         // Ask to be notified of selection changes.
         ListSelectionModel rowSM = m_FlowTable.getSelectionModel();
@@ -767,28 +777,36 @@ public class Applet extends JApplet
                 case PING:
                     long start = System.currentTimeMillis();
                     Sample sample = m_rrdDatabase.createSample(start / 1000);
-                    InetAddress addr = InetAddress.getByName(m_TargetAddrBox.getText());
                     Double value = Double.NaN;
 
                     try
                     {
+                        InetAddress addr = InetAddress.getByName(m_TargetAddrBox.getText());
+                        
 	                    if (addr.isReachable(1000))
 	                    {
 	                    	long elapsed = System.currentTimeMillis() - start;
 	                    	value = ((double)elapsed) / 1000;
+	                    	m_StatusBar.setText("");
 
+	                    	/*
 		                    System.out.println("Ping at " + start + 
 		                    		" returned in " + value + " seconds");
+		                    */
 	                    }
 	                    else
 	                    {
-		                    System.out.println("Ping at " + start + " lost");
+	                    	m_StatusBar.setText("Ping at " + start + " lost");
 	                    }
+                    }
+                    catch (UnknownHostException e)
+                    {
+                    	m_StatusBar.setText(e.toString());
                     }
                     catch (SocketException e)
                     {
                     	// not terribly interesting
-                    	System.out.println("Ping at " + start + 
+                    	m_StatusBar.setText("Ping at " + start + 
                         		" failed: " + e);
                     }
 
@@ -842,6 +860,9 @@ public class Applet extends JApplet
             	rrdGraph.setTitle("Round Trip Time (ping)");
             	rrdGraph.setVerticalLabel("seconds");
             	rrdGraph.setLowerLimit(0.0);
+            	rrdGraph.setTimeAxis(TimeAxisUnit.SECOND, 10,
+            			TimeAxisUnit.MINUTE, 1,
+            			"HH:mm:ss", true);
 
                 rrdGraph.datasource(m_PingDataSourceDef.getDsName(), RRD_PATH, 
                 		m_PingDataSourceDef.getDsName(), "AVERAGE");
@@ -922,8 +943,8 @@ public class Applet extends JApplet
             	break;
             }
 
-            m_panel.setRrd(rrdGraph);
-            m_panel.repaint();
+            m_Graph.setRrd(rrdGraph);
+            m_Graph.repaint();
             
         }
 
@@ -1051,7 +1072,7 @@ public class Applet extends JApplet
             
             m_panel.setRrd(rrdGraph);
             */
-            m_panel.repaint();
+            m_Graph.repaint();
         }
     }
 }
